@@ -4,25 +4,70 @@ import { HomePage } from "./layouts/HomePage/HomePage";
 import { Footer } from "./layouts/NavbarAndFooter/Footer";
 import { Navbar } from "./layouts/NavbarAndFooter/Navbar";
 import { SearchBooksPage } from "./layouts/SearchBooksPage/SearchBooksPage";
-import { Routes, Route, Navigate } from "react-router";
+import { Switch, Route, Redirect, useHistory } from "react-router-dom";
 import { BookCheckoutPage } from "./layouts/BookCheckoutPage/BookCheckoutPage";
+import { oktaConfig } from "./lib/oktaConfig";
+import { OktaAuth, toRelativeUrl } from "@okta/okta-auth-js";
+import { Security, LoginCallback, SecureRoute } from "@okta/okta-react";
+import LoginWidget from "./Auth/LoginWidget";
+import { config } from "process";
+import { ReviewListPage } from "./layouts/BookCheckoutPage/ReviewListPage/ReviewListPage";
+import { ShelfPage } from "./layouts/ShelfPage/ShelfPage";
+
+const oktaAuth = new OktaAuth(oktaConfig);
 
 export const App = () => {
+    const history = useHistory();
+    const customAuthHandler = () => {
+        history.push("/login");
+    };
+
+    const restoreOriginalUri = async (_oktaAuth: any, originalUri: any) => {
+        history.replace(
+            toRelativeUrl(originalUri || "/", window.location.origin)
+        );
+    };
+
     return (
         <div className="d-flex flex-column min-vh-100">
-            <Navbar />
-            <div className="flex-grow-1">
-                <Routes>
-                    <Route path="/" element={<Navigate to="/home" replace />} />
-                    <Route path="/home" element={<HomePage />} />
-                    <Route path="/search" element={<SearchBooksPage />} />
-                    <Route
-                        path="/checkout/:bookId"
-                        element={<BookCheckoutPage />}
-                    />
-                </Routes>
-            </div>
-            <Footer />
+            <Security
+                oktaAuth={oktaAuth}
+                restoreOriginalUri={restoreOriginalUri}
+                onAuthRequired={customAuthHandler}
+            >
+                <Navbar />
+                <div className="flex-grow-1">
+                    <Switch>
+                        <Route exact path="/">
+                            <Redirect to="/home" />
+                        </Route>
+                        <Route path="/home">
+                            <HomePage />
+                        </Route>
+                        <Route path="/search">
+                            <SearchBooksPage />
+                        </Route>
+                        <Route path="/reviewlist/:bookId">
+                            <ReviewListPage />
+                        </Route>
+                        <Route path="/checkout/:bookId">
+                            <BookCheckoutPage />
+                        </Route>
+                        <Route
+                            path="/login"
+                            render={() => <LoginWidget config={config} />}
+                        />
+                        <Route
+                            path="/login/callback"
+                            component={LoginCallback}
+                        />
+                        <SecureRoute path="/shelf">
+                            <ShelfPage />
+                        </SecureRoute>
+                    </Switch>
+                </div>
+                <Footer />
+            </Security>
         </div>
     );
 };
